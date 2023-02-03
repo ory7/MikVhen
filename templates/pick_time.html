@@ -1,0 +1,40 @@
+{% include "header.html" %}
+{{ debug }}
+{{ date }} -- for a different day, <a href="/mikvah/">click here</a>.
+<br/>
+<br/>
+{% if day == 'Friday' %}
+Click below to reserve the next appointment for Friday night.
+<br/>
+Please plan to prepare at home.
+{% else %}
+Please choose a time.
+{% endif %}
+<br/>
+<br/>
+<form method="get" action="payment">
+  <input type="hidden" name="day" value="{{ day }}"/>
+  <input type="hidden" name="contact" value="{{ contact }}"/>
+  {% if day != 'Friday' %}
+  <input type="hidden" name="prep" value="{{ prep }}"/>
+  {% endif %}
+  <div class="btn-group-vertical btn-group-lg">
+  {% for time in times %}
+  <input type=submit name=time class="btn btn-light m-1" value="{{ time }}" style="min-height: 100px; min-width: 250px"/>
+  {% endfor %}
+  </div>
+</form>
+<br/>
+{% if day != "Friday" %}
+{% if earlier_available %}
+<a href="?day={{day}}&contact={{ contact }}&prep={{ prep }}&earlier={{ times.0 }}">I need to come earlier.</a>
+{% endif %}
+<br/>
+{% if later_available %}
+<a href="?day={{day}}&contact={{ contact }}&prep={{ prep }}&later={{ times.2 }}">I need to come later.</a>
+{% endif %}
+<br/>
+<br/>
+{% endif %}
+The earliest zman for tvilah is {{ zman }}.
+{% include "footer.html" %}

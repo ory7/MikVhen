@@ -1,0 +1,37 @@
+{% include "header.html" %}
+{{ debug }}
+{{ day }}, {{ time }} -- for a different day/time, <a href="/mikvah/">click here</a>.
+<br/>
+<br/>
+<form method="post" action="save">
+  {% csrf_token %}
+  <input type="hidden" name="day" value="{{ day }}"/>
+  <input type="hidden" name="time" value="{{ time }}"/>
+  <input type="hidden" name="contact" value="{{ contact }}"/>
+  {% if day != 'Friday' %}
+  <input type="hidden" name="prep" value="{{ prep }}"/>
+  {% endif %}
+  The mikvah fee is $25, suggested.
+  <br/>
+  <br/>
+  <p>
+   <input name="payment" id="pay_online" type="radio" value="online" class="form-check-input" />
+   <label for="prepbath" class="form-check-label">I will pay online.</label>
+  <p/>
+  <p>
+   <input name="payment" id="pay_atmikvah" type="radio" value="atmikvah" class="form-check-input" />
+   <label for="prepshower" class="form-check-label">I will pay at the mikvah (cash, check, or credit card).</label>
+  <p/>
+  <p>
+   <input name="payment" id="pay_notnow" type="radio" value="notnow" class="form-check-input" required/>
+   <label for="prephome" class="form-check-label">I can't currently pay.</label>
+  <p/>
+  <br/>
+  <label for="notes">Extra notes for my visit:</label>
+  <br/>
+  <textarea name="notes"></textarea>
+  <br/>
+  <br/>
+  <input type=submit value="Schedule my appointment!"/>
+</form>
+{% include "footer.html" %}

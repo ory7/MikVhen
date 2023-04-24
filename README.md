@@ -12,7 +12,7 @@ Shabbes works slightly differently, first come first served starting at the zman
 
 You'll need to change the source for your own: time zone, geographic location, payment site, and appointment rate.
 
-This software does not currently support any integrations like texting or payments.
+This software does not currently support any integrations like texting or payment processing. You can link to an existing payment page.
 
 # HOWTO sketch
 

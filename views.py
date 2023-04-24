@@ -2,7 +2,6 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
 from datetime import datetime, date, time, timedelta
 from zoneinfo import ZoneInfo
 from zmanim.zmanim_calendar import ZmanimCalendar
@@ -154,7 +153,6 @@ def save(request):
         #"debug":d,
         })
 
-@login_required
 def attendant(request):
     date_param = request.GET.get("date")
     next_date = str(today())

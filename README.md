@@ -2,15 +2,9 @@
 
 This is a simple web site for scheduling appointments for mikvah.
 
-It's meant to be very easy to use and privacy sensitive.
+It's meant to be very easy to use and privacy sensitive. It encourages scheduling appointments close together, but not too many to handle. It prevents scheduling appointments before the zman. Shabbes works slightly differently, first come first served starting at the zman.
 
-It encourages scheduling appointments close together, but not too many to handle.
-
-It prevents scheduling appointments before the zman.
-
-Shabbes works slightly differently, first come first served starting at the zman.
-
-You'll need to change the source for your own: time zone, geographic location, payment site, and appointment rate.
+You'll need to make simple changes to the source code for your own: time zone, geographic location, payment site, and appointment rate.
 
 This software does not currently support any integrations like texting or payment processing. You can link to an existing payment page.
 
@@ -22,10 +16,8 @@ To set it up, you're going to want to be familiar with django, or go through [it
 
 Consider using https://pythonanywhere.com or https://fly.io to serve up the site for free, since it should be pretty light. Keep portability by [registering](https://domains.google/) and serving your own domain name. If you don't have any tech person to help with this stuff, consider instead a hosted solution like mikvahcloud or mikvahrsvp.
 
-Besides the django admin, there are really only two entry points:
+There are really only three entry points:
 
-/mikvah - for scheduling appointments
-
-/mikvah/attendant - for viewing appointments
-
-You're going to want to password protect the latter.
+* /mikvah - for scheduling appointments
+* /mikvah/admin - django admin
+* /mikvah/admin/attendant - for viewing appointments

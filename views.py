@@ -11,7 +11,6 @@ from .models import Appointment
 from .models import DayConfiguration
 
 #configurable values
-#TODO table with key-value pairs in database, how to trigger reload?
 best_time = time(18, 0)
 weekday_appointment_minutes = 10
 friday_appointment_minutes = 5
@@ -19,7 +18,10 @@ friday_open_minutes = 5
 weekday_open_minutes = -30
 saturday_open_minutes = 65
 total_minutes = 2*60+30
-prep_minutes = {"bath":45, "shower":30, "":15}
+timeout_seconds = 5*60
+prep_minutes = {"bath":30, "shower":10, "":0}
+prep_minutes_at_close = {"bath":50, "shower":25, "":15}
+#TODO table with key-value pairs in database, how to trigger reload?
 
 Friday = "Friday"
 Saturday = "Saturday"
@@ -32,14 +34,16 @@ def get_zman(d):
     return zman.replace(second=0, microsecond=0)
 
 def index(request):
-    #TODO display if already scheduled, secure cookie
-    #TODO cancel button
     #TODO optional password
+    #TODO display if already scheduled, secure cookie or optional password?
+    #TODO cancel button
     days = list(day_spellings)
     for x in range(today().weekday()):
         days.append(days.pop(0))
-    return render(request, "pick_day.html", {"contact":request.COOKIES.get("contact", ""),
-        "days":days, })
+    return render(request, "pick_day.html", {
+        "contact":request.COOKIES.get("contact", ""),
+        "days":days,
+        })
 
 def times(request):
     day_param = request.GET.get("day", "")
@@ -101,11 +105,10 @@ def times(request):
     times = []
     later_available = True
     for i in range(100): #just not infinite for safety
-        candidate_tvila = candidate+timedelta(minutes=prep_minutes[prep_param])
-        if candidate_tvila > latest:
+        if candidate+timedelta(minutes=prep_minutes_at_close[prep_param]) > latest:
             later_available = False
             break
-        if candidate_tvila >= zman:
+        if candidate+timedelta(minutes=prep_minutes[prep_param]) >= zman:
             if candidate not in appointment_times:
                 times.append(candidate)
                 if first_come_first_served:
@@ -116,9 +119,16 @@ def times(request):
 
     formatted_times = [nice_time(t) for t in times]
 
-    response = render(request, "pick_time.html", {"times":formatted_times, "date":nice_date(start),
-        "day":day_param, "contact":contact_param, "prep":prep_param, "zman":nice_time(zman),
-        "later_available":later_available, "earlier_available":earlier_available,
+    response = render(request, "pick_time.html", {
+        "timestamp":int(datetime.now().timestamp()),
+        "times":formatted_times,
+        "date":nice_date(start),
+        "day":day_param,
+        "contact":contact_param,
+        "prep":prep_param,
+        "zman":nice_time(zman),
+        "later_available":later_available,
+        "earlier_available":earlier_available,
         #"debug":debug
         })
     if contact_param:
@@ -133,7 +143,15 @@ def payment(request):
     time_param = request.GET.get("time")
     contact_param = request.GET.get("contact", "unknown")
     prep_param = request.GET.get("prep", "")
-    return render(request, "pick_pay.html", {"day":day_param, "time":time_param, "contact":contact_param, "prep":prep_param, })
+    timestamp_param = request.GET.get("timestamp")
+
+    return render(request, "pick_pay.html", {
+        "day":day_param,
+        "time":time_param,
+        "contact":contact_param,
+        "prep":prep_param,
+        "timestamp":timestamp_param,
+        })
 
 @csrf_exempt #b/c not worried about bogus aptmnts & don't yet have fallback for the cookieless
 def save(request):
@@ -143,13 +161,30 @@ def save(request):
     prep_param = request.POST.get("prep", "")
     payment_param = request.POST.get("payment")
     notes_param = request.POST.get("notes")
+    timestamp_param = request.POST.get("timestamp")
+
+    if datetime.now() - datetime.fromtimestamp(int(timestamp_param)) > timedelta(seconds=timeout_seconds):
+        d = { 'f':datetime.fromtimestamp(int(timestamp_param)), 'n':datetime.now() }
+        return render(request, "timeout.html", {
+           # 'debug': d
+            })
+
     entry = combine(date_from_param(day_param), time_from_param(time_param))
-    Appointment.objects.filter(contact=contact_param, datetime__gte=today()).delete() #replace any other upcoming appointments
-    #TODO creation timestamp
-    appointment = Appointment(datetime=entry, contact=contact_param, textable=False, payment=payment_param, notes=notes_param)
-    appointment.minutes_offset = prep_minutes[prep_param]
+
+    #replace any other upcoming appointments
+    Appointment.objects.filter(contact=contact_param, datetime__gte=today()).delete()
+
+    appointment = Appointment(datetime=entry,
+            contact=contact_param,
+            payment=payment_param,
+            notes=notes_param,
+            minutes_offset = prep_minutes[prep_param],
+            )
     appointment.save()
-    return render(request, "scheduled.html", {"day":entry.date(), "time":time_param, "payment":payment_param,
+    return render(request, "scheduled.html", {
+        "day":entry.date(),
+        "time":time_param,
+        "payment":payment_param,
         #"debug":d,
         })
 

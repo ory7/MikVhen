@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AppointmentAdmin(admin.ModelAdmin):
-    list_display = ("display_datetime", "display_contact")
+    list_display = ("Datetime", "Created_at", "private_contact")
 
 class MikvahAdmin(admin.AdminSite):
     site_title = "Mikvah admin"

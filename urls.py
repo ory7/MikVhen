@@ -8,5 +8,6 @@ urlpatterns = [
     path('times', views.times, name='times'),
     path('payment', views.payment, name='payment'),
     path('save', views.save, name='save'),
+    path('waterpressure', views.attendant, name='waterpressure'),
     path('admin/', admin_site.urls, name='mikvah_admin'),
 ]

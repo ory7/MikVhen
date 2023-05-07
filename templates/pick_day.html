@@ -1,6 +1,6 @@
 {% include "header.html" %}
 {{ debug }}
-<h1>Washington Heights Mikvah Appointments</h1>
+<h1>Washington Heights Mikvah</h1>
 <form method="get" action="times">
   <label for="contact" class="form-label">Contact number (preferably which can receive texts)</label>
   <br/>
@@ -9,19 +9,23 @@
    required type="tel" placeholder="XXX-XXX-XXXX" />
   <br/>
   <br/>
-  <input name="prep" id="prepbath" type="radio" value="bath" class="form-check-input" />
-  <label for="prepbath" class="form-check-label">Bath at the mikvah</label>, or
-  <br/>
-  <input name="prep" id="prepshower" type="radio" value="shower" class="form-check-input" />
-  <label for="prepshower" class="form-check-label">Shower at the mikvah</label>, or
-  <br/>
-  <input name="prep" id="prephome" type="radio" class="form-check-input" value="" required/>
-  <label for="prephome" class="form-check-label">Prep at home</label>
-  <br/>
+  <div>
+  <input name="prep" id="prep_bath" type="radio" value="bath" class="btn-check" autocomplete="off" />
+  <label for="prep_bath" class="form-check-label">Bath at the mikvah</label>
+  </div>
+  <div>
+  <input name="prep" id="prep_shower" type="radio" value="shower" class="btn-check" autocomplete="off" />
+  <label for="prep_shower" class="form-check-label">Shower at the mikvah</label>
+  </div>
+  <div>
+  <input name="prep" id="prep_home" type="radio" class="btn-check" value="" autocomplete="off" required/>
+  <label for="prep_home" class="form-check-label">Prep at home</label>
+  </div>
   <br/>
   <div class="btn-group-vertical btn-group-lg">
   {% for day in days %}
-  <input type=submit name="day" class="btn btn-light m-1" value="{{ day }}" style="min-width: 250px"/>
+  <input type=submit name="day" class="btn btn-light m-1" value="{{ day }}" style="min-width: 250px"
+   onClick="document.getElementById('prep_home').required = {% if day == 'Friday' %}false{% else %}true{% endif %}"/>
   {% endfor %}
   </div>
 </form>

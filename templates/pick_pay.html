@@ -1,6 +1,6 @@
 {% include "header.html" %}
 {{ debug }}
-{{ day }}, {{ time }} -- for a different day/time, <a href="/mikvah/">click here</a>.
+{{ day }}, {{ time }} - for a different time, <a href="/mikvah/">click here</a>.
 <br/>
 <br/>
 <form method="post" action="save">
@@ -15,23 +15,24 @@
   The mikvah fee is $25, suggested.
   <br/>
   <br/>
-  <p>
+  <div class="col-sm-5">
    <input name="payment" id="pay_online" type="radio" value="online" class="form-check-input" />
-   <label for="prepbath" class="form-check-label">I will pay online.</label>
-  <p/>
-  <p>
+   <label for="pay_online" class="form-check-label">I will pay now, online.</label>
+  </div>
+  <div class="col-sm-5">
    <input name="payment" id="pay_atmikvah" type="radio" value="atmikvah" class="form-check-input" />
-   <label for="prepshower" class="form-check-label">I will pay at the mikvah (cash, check, or credit card).</label>
-  <p/>
-  <p>
+   <label for="pay_atmikvah" class="form-check-label">I will pay later. Remind me at the mikvah.</label>
+  </div>
+  <div class="col-sm-5">
    <input name="payment" id="pay_notnow" type="radio" value="notnow" class="form-check-input" required/>
-   <label for="prephome" class="form-check-label">I can't currently pay.</label>
-  <p/>
+   <label for="pay_notnow" class="form-check-label">I can't currently pay.</label>
+  </div>
   <br/>
+  <div class="col-sm-5">
   <label for="notes">Extra notes for my visit:</label>
   <br/>
   <textarea name="notes"></textarea>
-  <br/>
+  </div>
   <br/>
   <input type=submit value="Schedule my appointment!"/>
 </form>

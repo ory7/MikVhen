@@ -18,6 +18,8 @@ Consider using https://pythonanywhere.com or https://fly.io to serve up the site
 
 There are really only three entry points:
 
-* /mikvah - for scheduling appointments
+* /mikvah - for scheduling appointments, first of three steps to book an appointment
 * /mikvah/admin - django admin
 * /mikvah/admin/attendant - for viewing appointments
+
+![screenshot](./mikvahFirstScreen.png)

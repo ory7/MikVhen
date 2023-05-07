@@ -19,7 +19,7 @@ weekday_open_minutes = -30
 saturday_open_minutes = 65
 total_minutes = 2*60+30
 timeout_seconds = 5*60
-prep_minutes = {"bath":30, "shower":10, "":0}
+prep_minutes = {"bath":30, "shower":10, "":5}
 prep_minutes_at_close = {"bath":50, "shower":25, "":15}
 #TODO table with key-value pairs in database, how to trigger reload?
 
@@ -30,12 +30,12 @@ day_spellings = ["Monday", "Tuesday", "Wednesday", "Thursday", Friday, Saturday,
 def get_zman(d):
     location = GeoLocation("New York, NY", 40.85139828693182, -73.93642913006643, settings.TIME_ZONE, elevation=0)
     calendar = ZmanimCalendar(geo_location=location, date=d)
-    zman = calendar.sunset_offset_by_degrees(97.3) # seems to be three small stars
+    zman = calendar.sunset_offset_by_degrees(97.3) # seems to be three medium stars
     return zman.replace(second=0, microsecond=0)
 
 def index(request):
     #TODO optional password
-    #TODO display if already scheduled, secure cookie or optional password?
+    #TODO display if already scheduled, secure cookie or only password?
     #TODO cancel button
     days = list(day_spellings)
     for x in range(today().weekday()):

@@ -1,4 +1,10 @@
 {% include "header.html" %}
+<script>
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+</script>
 {{ debug }}
 <h1>Washington Heights Mikvah</h1>
 <form method="get" action="times">
@@ -9,6 +15,7 @@
    required type="tel" placeholder="XXX-XXX-XXXX" />
   <br/>
   <br/>
+  <div data-bs-toggle="tooltip" title="Bathers can arrive earlier than the zman tevila, because they generally won't be ready until after the zman. Conversely, bathers can't arrive right up until closing time, because they'd delay it.">
   <div>
   <input name="prep" id="prep_bath" type="radio" value="bath" class="btn-check" autocomplete="off" />
   <label for="prep_bath" class="form-check-label">Bath at the mikvah</label>
@@ -20,6 +27,7 @@
   <div>
   <input name="prep" id="prep_home" type="radio" class="btn-check" value="" autocomplete="off" required/>
   <label for="prep_home" class="form-check-label">Prep at home</label>
+  </div>
   </div>
   <br/>
   <div class="btn-group-vertical btn-group-lg">

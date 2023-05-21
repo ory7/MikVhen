@@ -28,4 +28,5 @@ class Appointment(models.Model):
 class DayConfiguration(models.Model):
     date = models.DateField()
     opening = models.TimeField()
+    closing = models.TimeField()
     first_come_first_served = models.BooleanField(default=False)

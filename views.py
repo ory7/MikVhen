@@ -17,7 +17,10 @@ friday_appointment_minutes = 5
 friday_open_minutes = 5
 weekday_open_minutes = -30
 saturday_open_minutes = 65
-total_minutes = 2*60+30
+saturday_latest_close = time(23, 59)
+nonsaturday_latest_close = time(23, 0)
+nonfriday_total_minutes = 2*60+30
+friday_total_minutes = 60
 timeout_seconds = 5*60
 prep_minutes = {"bath":30, "shower":10, "":5}
 prep_minutes_at_close = {"bath":50, "shower":25, "":15}
@@ -31,7 +34,9 @@ def get_zman(d):
     location = GeoLocation("New York, NY", 40.85139828693182, -73.93642913006643, settings.TIME_ZONE, elevation=0)
     calendar = ZmanimCalendar(geo_location=location, date=d)
     zman = calendar.sunset_offset_by_degrees(97.3) # seems to be three medium stars
+    #TODO change html to not require prep type for first come first served days? speed?
     return zman.replace(second=0, microsecond=0)
+
 
 def index(request):
     #TODO optional password
@@ -54,38 +59,38 @@ def times(request):
     textable_param = request.GET.get("textable", False) #TODO separate table
 
     start = date_from_param(day_param)
-    stop = start + timedelta(days=2) #TODO probably doesn't need to be 2 anymore
+    stop = start + timedelta(days=1)
     appointments = Appointment.objects.filter(datetime__gte=start, datetime__lte=stop)
     appointment_times = list(localize(a) for a in appointments)
 
     #TODO automatic holiday support
 
-    if day_param == Friday:
-        appointment_minutes = friday_appointment_minutes
-    else:
-        appointment_minutes = weekday_appointment_minutes
-
     zman = get_zman(start)
     day_configuration = DayConfiguration.objects.filter(date=start)
     if len(day_configuration) == 1:
-        earliest = combine(start, day_configuration[0].opening)
         first_come_first_served = day_configuration[0].first_come_first_served
+        earliest = combine(start, day_configuration[0].opening)
+        latest = combine(start, day_configuration[0].closing)
     elif day_param == Friday:
-        earliest = minutes_after(zman, friday_open_minutes)
         first_come_first_served = True
-    elif day_param == Saturday:
-        earliest = minutes_after(zman, saturday_open_minutes)
-        first_come_first_served = False
+        earliest = minutes_after(zman, friday_open_minutes)
+        latest = earliest + timedelta(minutes=friday_total_minutes)
     else:
-        earliest = minutes_after(zman, weekday_open_minutes)
         first_come_first_served = False
-
-    latest = earliest + timedelta(minutes=total_minutes)
+        if day_param == Saturday:
+            earliest = minutes_after(zman, saturday_open_minutes)
+            raw_latest = earliest + timedelta(minutes=nonfriday_total_minutes)
+            latest = min(raw_latest, combine(earliest, saturday_latest_close))
+        else:
+            earliest = minutes_after(zman, weekday_open_minutes)
+            raw_latest = earliest + timedelta(minutes=nonfriday_total_minutes)
+            latest = min(raw_latest, combine(earliest, nonsaturday_latest_close))
 
     if first_come_first_served:
+        appointment_minutes = friday_appointment_minutes
         prep_param = ""
-
-    #TODO close no later than midnight motsei shabbes/yom tov, and 11pm other days
+    else:
+        appointment_minutes = weekday_appointment_minutes
 
     best_time_today = combine(start, best_time)
     rounded_best_time = earliest
@@ -101,7 +106,7 @@ def times(request):
         earlier_available = False
         candidate = earliest
 
-    debug={}
+    debug={'earliest':earliest, 'latest':latest, }
     times = []
     later_available = True
     for i in range(100): #just not infinite for safety
@@ -129,6 +134,7 @@ def times(request):
         "zman":nice_time(zman),
         "later_available":later_available,
         "earlier_available":earlier_available,
+        "first_come_first_served":first_come_first_served,
         #"debug":debug
         })
     if contact_param:

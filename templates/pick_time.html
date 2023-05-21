@@ -1,10 +1,15 @@
 {% include "header.html" %}
+{% if debug %}
 {{ debug }}
+<br/>
+<br/>
+{% endif %}
 {{ day }} - for a different day, <a href="/mikvah/">click here</a>.
 <br/>
 <br/>
-{% if day == 'Friday' %}
-Click below to reserve the next appointment for Friday night.
+{% if first_come_first_served %}
+Click below to reserve the next appointment for that evening.
+<br/>
 <br/>
 Please plan to prepare at home.
 {% else %}
@@ -16,7 +21,7 @@ Please choose a time.
   <input type="hidden" name="day" value="{{ day }}"/>
   <input type="hidden" name="contact" value="{{ contact }}"/>
   <input type="hidden" name="timestamp" value="{{ timestamp }}"/>
-  {% if day != 'Friday' %}
+  {% if first_come_first_served %}
   <input type="hidden" name="prep" value="{{ prep }}"/>
   {% endif %}
   <div class="btn-group-vertical btn-group-lg">
@@ -26,7 +31,7 @@ Please choose a time.
   </div>
 </form>
 <br/>
-{% if day != "Friday" %}
+{% if not first_come_first_served %}
 {% if earlier_available %}
 <a href="?day={{day}}&contact={{ contact }}&prep={{ prep }}&earlier={{ times.0 }}">I need to come earlier.</a>
 {% endif %}

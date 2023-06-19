@@ -15,8 +15,8 @@ class AppointmentAdmin(admin.ModelAdmin):
     list_display = ("Datetime", "Created_at", "private_contact")
 
 class MikvahAdmin(admin.AdminSite):
-    site_title = "Mikvah admin"
-    site_header = "Mikvah admin"
+    site_title = "Mikvah Admin"
+    site_header = "Mikvah Admin"
     site_url = "/mikvah/admin/attendant/"
 
     def get_urls(self):

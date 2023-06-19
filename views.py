@@ -9,8 +9,11 @@ from zmanim.util.geo_location import GeoLocation
 from re import compile
 from .models import Appointment
 from .models import DayConfiguration
+from twilio.rest import Client
+from logging import exception
 
 #configurable values
+
 best_time = time(18, 0)
 weekday_appointment_minutes = 10
 friday_appointment_minutes = 5
@@ -151,15 +154,40 @@ def payment(request):
     prep_param = request.GET.get("prep", "")
     timestamp_param = request.GET.get("timestamp")
 
+    #debug = {'woo':prep_param}
+
     return render(request, "pick_pay.html", {
         "day":day_param,
         "time":time_param,
         "contact":contact_param,
         "prep":prep_param,
         "timestamp":timestamp_param,
+        #"debug":debug
         })
 
-@csrf_exempt #b/c not worried about bogus aptmnts & don't yet have fallback for the cookieless
+def send_sms_message(date: str, time: str, contact: str):
+    if not hasattr(settings, 'TWILIO_SID'):
+        return
+    client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
+    try:
+        client.messages.create(
+    	    body=f"Confirmed! Your appointment is now {date} {time} in Washington Heights",
+    	    from_=settings.TWILIO_SMS_SENDER,
+            to=contact,
+        )
+    except Exception:
+        exception("Could not sms a confirmation")
+
+    try:
+        client.messages.create(
+            body=f"{contact} scheduled for {date} {time}",
+            from_=settings.TWILIO_SMS_SENDER,
+            to=settings.TWILIO_SMS_LOG_RECIPIENT,
+        )
+    except Exception:
+        exception("Could not sms a log entry")
+
+@csrf_exempt #b/c not worried about bogus appointments & don't yet have fallback for the cookieless
 def save(request):
     day_param = request.POST.get("day")
     time_param = request.POST.get("time")
@@ -187,6 +215,7 @@ def save(request):
             minutes_offset = prep_minutes[prep_param],
             )
     appointment.save()
+    send_sms_message(entry.date(), time_param, contact_param)
     return render(request, "scheduled.html", {
         "day":entry.date(),
         "time":time_param,

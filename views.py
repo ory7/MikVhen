@@ -17,11 +17,16 @@ from logging import exception
 best_time = time(18, 0)
 weekday_appointment_minutes = 10
 friday_appointment_minutes = 5
+earliest_open = time(17, 0)
+earliest_close = time(21, 0)
+#_open_minutes means how many minutes before the zman to open; negative means after the zman
+#TODO make it more clear
 friday_open_minutes = 5
 weekday_open_minutes = -30
 saturday_open_minutes = 65
 saturday_latest_close = time(23, 59)
 nonsaturday_latest_close = time(23, 0)
+#_total_minutes means the minimum number of minutes to be open, as long as that doesn't pass _latest_close
 nonfriday_total_minutes = 2*60+30
 friday_total_minutes = 60
 timeout_seconds = 5*60
@@ -72,22 +77,12 @@ def times(request):
     day_configuration = DayConfiguration.objects.filter(date=start)
     if len(day_configuration) == 1:
         first_come_first_served = day_configuration[0].first_come_first_served
-        earliest = combine(start, day_configuration[0].opening)
-        latest = combine(start, day_configuration[0].closing)
-    elif day_param == Friday:
-        first_come_first_served = True
-        earliest = minutes_after(zman, friday_open_minutes)
-        latest = earliest + timedelta(minutes=friday_total_minutes)
+        open_time = combine(start, day_configuration[0].opening)
+        close_time = combine(start, day_configuration[0].closing)
     else:
-        first_come_first_served = False
-        if day_param == Saturday:
-            earliest = minutes_after(zman, saturday_open_minutes)
-            raw_latest = earliest + timedelta(minutes=nonfriday_total_minutes)
-            latest = min(raw_latest, combine(earliest, saturday_latest_close))
-        else:
-            earliest = minutes_after(zman, weekday_open_minutes)
-            raw_latest = earliest + timedelta(minutes=nonfriday_total_minutes)
-            latest = min(raw_latest, combine(earliest, nonsaturday_latest_close))
+        first_come_first_served = day_param == Friday
+        open_time = get_open_time(zman, day_param)
+        close_time = get_close_time(zman, day_param, open_time)
 
     if first_come_first_served:
         appointment_minutes = friday_appointment_minutes
@@ -96,24 +91,24 @@ def times(request):
         appointment_minutes = weekday_appointment_minutes
 
     best_time_today = combine(start, best_time)
-    rounded_best_time = earliest
+    rounded_best_time = open_time
     while rounded_best_time < best_time_today:
         rounded_best_time += timedelta(minutes=appointment_minutes)
     if later_param:
         candidate = combine(start, time_from_param(later_param))
         earlier_available = True
-    elif not earlier_param and earliest < rounded_best_time:
+    elif not earlier_param and open_time < rounded_best_time:
         candidate = rounded_best_time
         earlier_available = True
     else:
         earlier_available = False
-        candidate = earliest
+        candidate = open_time
 
-    debug={'earliest':earliest, 'latest':latest, }
+    debug={'earliest':open_time, 'latest':close_time, }
     times = []
     later_available = True
     for i in range(100): #just not infinite for safety
-        if candidate+timedelta(minutes=prep_minutes_at_close[prep_param]) > latest:
+        if candidate+timedelta(minutes=prep_minutes_at_close[prep_param]) > close_time:
             later_available = False
             break
         if candidate+timedelta(minutes=prep_minutes[prep_param]) >= zman:
@@ -144,8 +139,31 @@ def times(request):
         response.set_cookie("contact", contact_param, max_age=60*60*24*365)
     return response
 
-def minutes_after(zman, m):
-    return zman + timedelta(minutes=m-zman.minute%5)
+def get_open_time(zman, day_param):
+    if day_param == Friday:
+        open_minutes = friday_open_minutes
+    elif day_param == Saturday:
+        open_minutes = saturday_open_minutes
+    else:
+        open_minutes = weekday_open_minutes
+    open_time = zman + timedelta(minutes=open_minutes-zman.minute%5)
+    open_time = max(open_time, combine(open_time, earliest_open))
+    return open_time
+
+def get_close_time(zman, day_param, open_time):
+    if day_param == Friday:
+        total_minutes = friday_total_minutes
+        latest_close = nonsaturday_latest_close
+    elif day_param == Saturday:
+        total_minutes = nonfriday_total_minutes
+        latest_close = saturday_latest_close
+    else:
+        total_minutes = nonfriday_total_minutes
+        latest_close = nonsaturday_latest_close
+    close_time = open_time + timedelta(minutes=total_minutes)
+    close_time = max(close_time, combine(open_time, earliest_close))
+    close_time = min(close_time, combine(open_time, latest_close))
+    return close_time
 
 def payment(request):
     day_param = request.GET.get("day")
@@ -164,28 +182,6 @@ def payment(request):
         "timestamp":timestamp_param,
         #"debug":debug
         })
-
-def send_sms_message(date: str, time: str, contact: str):
-    if not hasattr(settings, 'TWILIO_SID'):
-        return
-    client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
-    try:
-        client.messages.create(
-    	    body=f"Confirmed! Your appointment is now {date} {time} in Washington Heights",
-    	    from_=settings.TWILIO_SMS_SENDER,
-            to=contact,
-        )
-    except Exception:
-        exception("Could not sms a confirmation")
-
-    try:
-        client.messages.create(
-            body=f"{contact} scheduled for {date} {time}",
-            from_=settings.TWILIO_SMS_SENDER,
-            to=settings.TWILIO_SMS_LOG_RECIPIENT,
-        )
-    except Exception:
-        exception("Could not sms a log entry")
 
 @csrf_exempt #b/c not worried about bogus appointments & don't yet have fallback for the cookieless
 def save(request):
@@ -215,13 +211,41 @@ def save(request):
             minutes_offset = prep_minutes[prep_param],
             )
     appointment.save()
-    send_sms_message(entry.date(), time_param, contact_param)
+    #TODO make this an offset from open_time
+    alert = False
+    if entry.date() == today():
+        zman = get_zman(today())
+        if datetime.now(tz=ZoneInfo(settings.TIME_ZONE)) > zman - timedelta(minutes=45):
+            alert = True
+    send_sms_message(entry.date(), time_param, contact_param, alert)
     return render(request, "scheduled.html", {
-        "day":entry.date(),
+        "date":entry.date(),
+        "day":day_param,
         "time":time_param,
         "payment":payment_param,
         #"debug":d,
         })
+
+def send_sms_message(date: str, time: str, contact: str, alert: bool):
+    if not hasattr(settings, 'TWILIO_SID'):
+        return
+    client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
+    try:
+        client.messages.create(
+    	    body=f"Confirmed! Your appointment is {time} PM {date}",
+    	    from_=settings.TWILIO_SMS_SENDER,
+            to=contact,
+        )
+    except Exception:
+        exception("Could not sms a confirmation")
+    try:
+        client.messages.create(
+            body=(alert and "ALERT! " or "")+f"{contact} scheduled for {date} {time} PM",
+            from_=settings.TWILIO_SMS_SENDER,
+            to=settings.TWILIO_SMS_LOG_RECIPIENT,
+        )
+    except Exception as e:
+        exception("Could not sms a log entry")
 
 def attendant(request):
     date_param = request.GET.get("date")

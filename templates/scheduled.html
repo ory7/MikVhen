@@ -3,7 +3,7 @@
 <img src="/static/roses.svg" align="right" style="float:right; width:70%" />
 <br/>
 <br/>
-<div class="lead">Terrific! You are scheduled for {{ time }} on {{ day }}!</div>
+<div class="lead">Terrific! You are scheduled for {{ time }} PM on {{ date }}!</div>
 <br/>
 <p>See you then, iyH.</p>
 <br/>
@@ -12,4 +12,13 @@ You can <a href="https://www.kajinc.org/form/mikveh-donation.html">pay online us
 <br/>
 <br/>
 You can <a href="/mikvah/">go back in order to reschedule your appointment</a>.
+{% now "l" as current_day %}
+{% now "H" as current_hour %}
+{% if current_day == day and current_hour >= "12" %}
+<script type="text/javascript">
+    window.onload = function nav() {
+        alert("Since it is after noon on the day of your appointment, please text 929-266-6360 to make sure everything is ready for you.");
+    }
+</script>
+{% endif %}
 {% include "footer.html" %}

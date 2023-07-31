@@ -13,7 +13,10 @@ var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
   <input class="col-sm-2" name="contact" value="{{contact}}" id="contact" class="form-control"
    pattern=".*[0-9]{3}.*[0-9]{3}.*[0-9]{4}.*" title="Enter a phone number which has at least 10 numeric digits."
    required type="tel" placeholder="XXX-XXX-XXXX" />
-  <br/>
+  <div class="custom-control custom-checkbox checkbox-sm">
+      <input type="checkbox" class="custom-control-input" name="textconfirm" {%if textconfirm %}checked {%endif%}id="textconfirm">
+    <label class="custom-control-label" for="textconfirm">text message confirmation</label>
+  </div>
   <br/>
   <div data-bs-toggle="tooltip" title="Bathers can arrive earlier than the zman tevila, because they generally won't be ready until after the zman. Conversely, bathers can't arrive right up until closing time, because they'd delay it.">
   <div>

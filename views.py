@@ -6,11 +6,14 @@ from datetime import datetime, date, time, timedelta
 from zoneinfo import ZoneInfo
 from zmanim.zmanim_calendar import ZmanimCalendar
 from zmanim.util.geo_location import GeoLocation
-from re import compile
+from re import compile, findall
 from .models import Appointment
 from .models import DayConfiguration
-from twilio.rest import Client
 from logging import exception
+try:
+    from twilio.rest import Client
+except Exception:
+    exception("Could not import twilio, will not be able to sms")
 
 #configurable values
 
@@ -55,6 +58,7 @@ def index(request):
         days.append(days.pop(0))
     return render(request, "pick_day.html", {
         "contact":request.COOKIES.get("contact", ""),
+        "textconfirm":request.COOKIES.get("textconfirm", "yes"),
         "days":days,
         })
 
@@ -63,6 +67,7 @@ def times(request):
     earlier_param = request.GET.get("earlier", "")
     prep_param = request.GET.get("prep", "") #TODO remember from cookie?
     contact_param = request.GET.get("contact", "")
+    textconfirm_param = request.GET.get("textconfirm", "")
     later_param = request.GET.get("later", "")
     textable_param = request.GET.get("textable", False) #TODO separate table
 
@@ -127,7 +132,7 @@ def times(request):
         "times":formatted_times,
         "date":nice_date(start),
         "day":day_param,
-        "contact":contact_param,
+        "contact":contact_param, #pass it through so that people can still use without cookies
         "prep":prep_param,
         "zman":nice_time(zman),
         "later_available":later_available,
@@ -137,6 +142,7 @@ def times(request):
         })
     if contact_param:
         response.set_cookie("contact", contact_param, max_age=60*60*24*365)
+        response.set_cookie("textconfirm", textconfirm_param, max_age=60*60*24*365)
     return response
 
 def get_open_time(zman, day_param):
@@ -183,11 +189,11 @@ def payment(request):
         #"debug":debug
         })
 
-@csrf_exempt #b/c not worried about bogus appointments & don't yet have fallback for the cookieless
+@csrf_exempt #b/c not worried about bogus appointments
 def save(request):
     day_param = request.POST.get("day")
     time_param = request.POST.get("time")
-    contact_param = request.POST.get("contact", "unknown")
+    contact_param = ''.join(findall(r'\w', request.POST.get("contact", "unknown")))
     prep_param = request.POST.get("prep", "")
     payment_param = request.POST.get("payment")
     notes_param = request.POST.get("notes")
@@ -211,13 +217,11 @@ def save(request):
             minutes_offset = prep_minutes[prep_param],
             )
     appointment.save()
-    #TODO make this an offset from open_time
     alert = False
-    if entry.date() == today():
-        zman = get_zman(today())
-        if datetime.now(tz=ZoneInfo(settings.TIME_ZONE)) > zman - timedelta(minutes=45):
-            alert = True
-    send_sms_message(entry.date(), time_param, contact_param, alert)
+    now = datetime.now(tz=ZoneInfo(settings.TIME_ZONE))
+    if request.COOKIES.get("textconfirm"):
+        send_sms_confirm(entry.date(), time_param, contact_param)
+    send_sms_log(entry.date(), time_param, contact_param, entry.date() == now.date() and now.hour > 12)
     return render(request, "scheduled.html", {
         "date":entry.date(),
         "day":day_param,
@@ -226,18 +230,20 @@ def save(request):
         #"debug":d,
         })
 
-def send_sms_message(date: str, time: str, contact: str, alert: bool):
+def send_sms_confirm(date: str, time: str, contact: str):
     if not hasattr(settings, 'TWILIO_SID'):
         return
     client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
     try:
         client.messages.create(
-    	    body=f"Confirmed! Your appointment is {time} PM {date}",
-    	    from_=settings.TWILIO_SMS_SENDER,
+            body=f"Confirmed! Your appointment is {time} PM {date}",
+            from_=settings.TWILIO_SMS_SENDER,
             to=contact,
         )
     except Exception:
         exception("Could not sms a confirmation")
+
+def send_sms_log(date: str, time: str, contact: str, alert: bool):
     try:
         client.messages.create(
             body=(alert and "ALERT! " or "")+f"{contact} scheduled for {date} {time} PM",

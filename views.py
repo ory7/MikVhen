@@ -92,10 +92,11 @@ def times(request):
     if first_come_first_served:
         appointment_minutes = friday_appointment_minutes
         prep_param = ""
+        best_time_today = open_time
     else:
         appointment_minutes = weekday_appointment_minutes
+        best_time_today = combine(start, best_time)
 
-    best_time_today = combine(start, best_time)
     rounded_best_time = open_time
     while rounded_best_time < best_time_today:
         rounded_best_time += timedelta(minutes=appointment_minutes)

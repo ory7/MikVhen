@@ -9,7 +9,7 @@ from zmanim.util.geo_location import GeoLocation
 from re import compile, findall
 from .models import Appointment
 from .models import DayConfiguration
-from logging import exception
+from logging import exception, getLogger
 try:
     from twilio.rest import Client
 except Exception:
@@ -41,6 +41,8 @@ Friday = "Friday"
 Saturday = "Saturday"
 day_spellings = ["Monday", "Tuesday", "Wednesday", "Thursday", Friday, Saturday, "Sunday"]
 
+logger = getLogger(__name__)
+
 def get_zman(d):
     location = GeoLocation("New York, NY", 40.85139828693182, -73.93642913006643, settings.TIME_ZONE, elevation=0)
     calendar = ZmanimCalendar(geo_location=location, date=d)
@@ -48,21 +50,20 @@ def get_zman(d):
     #TODO change html to not require prep type for first come first served days? speed?
     return zman.replace(second=0, microsecond=0)
 
-
-def index(request):
+def index(request, prefix=""):
     #TODO optional password
-    #TODO display if already scheduled, secure cookie or only password?
+    # display if already scheduled, secure cookie or only password?
     #TODO cancel button
     days = list(day_spellings)
     for x in range(today().weekday()):
         days.append(days.pop(0))
-    return render(request, "pick_day.html", {
+    return render(request, prefix+"pick_day.html", {
         "contact":request.COOKIES.get("contact", ""),
         "textconfirm":request.COOKIES.get("textconfirm", "yes"),
         "days":days,
         })
 
-def times(request):
+def times(request, prefix=""):
     day_param = request.GET.get("day", "")
     earlier_param = request.GET.get("earlier", "")
     prep_param = request.GET.get("prep", "") #TODO remember from cookie?
@@ -91,7 +92,7 @@ def times(request):
 
     now = datetime.now(tz=ZoneInfo(settings.TIME_ZONE))
     if today().weekday() == day_dict.get(day_param) and now > open_time:
-        return render(request, "too_late.html", {
+        return render(request, prefix+"too_late.html", {
         "day":day_param,
         "zman":nice_time(zman),
         "closing":nice_time(close_time)
@@ -136,12 +137,13 @@ def times(request):
 
     formatted_times = [nice_time(t) for t in times]
 
-    response = render(request, "pick_time.html", {
+    response = render(request, prefix+"pick_time.html", {
         "timestamp":int(datetime.now().timestamp()),
         "times":formatted_times,
         "date":nice_date(start),
         "day":day_param,
         "contact":contact_param, #pass it through so that people can still use without cookies
+        "textconfirm":textconfirm_param, #pass it through so that people can still use without cookies
         "prep":prep_param,
         "zman":nice_time(zman),
         "closing":nice_time(close_time),
@@ -152,6 +154,7 @@ def times(request):
         })
     if contact_param:
         response.set_cookie("contact", contact_param, max_age=60*60*24*365)
+    if textconfirm_param:
         response.set_cookie("textconfirm", textconfirm_param, max_age=60*60*24*365)
     return response
 
@@ -181,29 +184,32 @@ def get_close_time(zman, day_param, open_time):
     close_time = min(close_time, combine(open_time, latest_close))
     return close_time
 
-def payment(request):
+def payment(request, prefix=""):
     day_param = request.GET.get("day")
     time_param = request.GET.get("time")
     contact_param = request.GET.get("contact", "unknown")
+    textconfirm_param = request.GET.get("textconfirm", "")
     prep_param = request.GET.get("prep", "")
     timestamp_param = request.GET.get("timestamp")
 
     #debug = {'woo':prep_param}
 
-    return render(request, "pick_pay.html", {
+    return render(request, prefix+"pick_pay.html", {
         "day":day_param,
         "time":time_param,
         "contact":contact_param,
+        "textconfirm":textconfirm_param,
         "prep":prep_param,
         "timestamp":timestamp_param,
         #"debug":debug
         })
 
 @csrf_exempt #b/c not worried about bogus appointments
-def save(request):
+def save(request, prefix=""):
     day_param = request.POST.get("day")
     time_param = request.POST.get("time")
     contact_param = ''.join(findall(r'\w', request.POST.get("contact", "unknown")))
+    textconfirm_param = request.POST.get("textconfirm", "")
     prep_param = request.POST.get("prep", "")
     payment_param = request.POST.get("payment")
     notes_param = request.POST.get("notes")
@@ -211,7 +217,7 @@ def save(request):
 
     if datetime.now() - datetime.fromtimestamp(int(timestamp_param)) > timedelta(seconds=timeout_seconds):
         d = { 'f':datetime.fromtimestamp(int(timestamp_param)), 'n':datetime.now() }
-        return render(request, "timeout.html", {
+        return render(request, prefix+"timeout.html", {
            # 'debug': d
             })
 
@@ -229,10 +235,11 @@ def save(request):
     appointment.save()
     alert = False
     now = datetime.now(tz=ZoneInfo(settings.TIME_ZONE))
-    if request.COOKIES.get("textconfirm"):
+    if textconfirm_param:
         send_sms_confirm(entry.date(), time_param, contact_param)
+        logger.info("sent confirmation text for "+contact_param)
     send_sms_log(entry.date(), time_param, contact_param, entry.date() == now.date() and now.hour > 12)
-    return render(request, "scheduled.html", {
+    return render(request, prefix+"scheduled.html", {
         "date":entry.date(),
         "day":day_param,
         "time":time_param,
@@ -246,7 +253,7 @@ def send_sms_confirm(date: str, time: str, contact: str):
     try:
         sms_client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
         sms_client.messages.create(
-            body=f"Confirmed! Your appointment is {time} PM {date}",
+            body=f"Your Washington Heights appointment is scheduled for {date}, {time} PM. You have opted in to receive this message from CONGREGATION KHAL ADATH JESHURUN INC for appointment notifications. Message and data rates may apply. Reply STOP to unsubscribe.",
             from_=settings.TWILIO_SMS_SENDER,
             to=contact,
         )
@@ -259,14 +266,14 @@ def send_sms_log(date: str, time: str, contact: str, alert: bool):
     try:
         sms_client = Client(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN)
         sms_client.messages.create(
-            body=(alert and "ALERT! " or "")+f"{contact} scheduled for {date} {time} PM",
+            body=(alert and "ALERT! " or "")+f"{contact} scheduled for {date}, {time} PM. You have opted in to receive this message from CONGREGATION KHAL ADATH JESHURUN INC for appointment notifications. Message and data rates may apply. Reply STOP to unsubscribe.",
             from_=settings.TWILIO_SMS_SENDER,
             to=settings.TWILIO_SMS_LOG_RECIPIENT,
         )
     except Exception as e:
         exception("Could not sms a log entry")
 
-def attendant(request):
+def attendant(request, prefix=""):
     date_param = request.GET.get("date")
     next_date = str(today())
     if date_param == 'all':
@@ -278,12 +285,12 @@ def attendant(request):
     formatted_appointments = [{
         "day":nice_date(localize(a)),
         "arrival_time":nice_time(localize(a)),
-        "prep_type":prep_type[a.minutes_offset],
+        "prep_type":prep_type.get(a.minutes_offset, a.minutes_offset),
         "contact":a.contact,
         "payment":a.payment,
         "notes":a.notes,
         } for a in appointments]
-    return render(request, "attendant.html", {"appointments":formatted_appointments,"next_date":str(next_date),})
+    return render(request, prefix+"attendant.html", {"appointments":formatted_appointments,"next_date":str(next_date),})
 
 #TODO export appointments to csv
 
